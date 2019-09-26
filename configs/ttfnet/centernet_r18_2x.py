@@ -37,8 +37,7 @@ test_cfg = dict(
     max_per_img=100)
 # dataset settings
 dataset_type = 'CocoDataset'
-# data_root = '/media/jnie/Storage/ubuntu/DataSets/coco2017/'
-data_root = '/raid/jing/data/dataset/coco2017/'
+data_root = '/raid/jnie/dataset/coco2017/'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 data = dict(
@@ -91,7 +90,7 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=1.0 / 5,
-    step=[9, 11])
+    step=[18, 22])
 checkpoint_config = dict(interval=4)
 bbox_head_hist_config = dict(
     model_type=['ConvModule', 'DeformConvPack'],
@@ -104,13 +103,11 @@ log_config = dict(
     ])
 # yapf:enable
 # runtime settings
-total_epochs = 12
+total_epochs = 24
 device_ids = range(8)
-# device_ids = range(2)
-# device_ids = 1
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = './work_dirs/centernet18_1x'
+work_dir = './work_dirs/centernet18_2x_2'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]
