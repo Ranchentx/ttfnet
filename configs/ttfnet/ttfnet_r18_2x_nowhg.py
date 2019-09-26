@@ -21,7 +21,8 @@ model = dict(
         num_classes=81,
         wh_offset_base=16,
         wh_agnostic=True,
-        wh_gaussian=True,
+        wh_gaussian=False,
+        wh_area_process=None,
         shortcut_cfg=(1, 2, 3),
         norm_cfg=dict(type='BN'),
         alpha=0.54,
@@ -37,11 +38,11 @@ test_cfg = dict(
     max_per_img=100)
 # dataset settings
 dataset_type = 'CocoDataset'
-data_root = '/media/jnie/Storage/ubuntu/DataSets/coco2017/'
+data_root = '/raid/jnie/dataset/coco2017/'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 data = dict(
-    imgs_per_gpu=2,
+    imgs_per_gpu=16,
     workers_per_gpu=2,
     train=dict(
         type=dataset_type,
@@ -90,7 +91,7 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=1.0 / 5,
-    step=[9, 11])
+    step=[18, 22])
 checkpoint_config = dict(interval=4)
 bbox_head_hist_config = dict(
     model_type=['ConvModule', 'DeformConvPack'],
@@ -103,12 +104,11 @@ log_config = dict(
     ])
 # yapf:enable
 # runtime settings
-total_epochs = 12
-# device_ids = range(8)
-device_ids = range(2)
+total_epochs = 24
+device_ids = range(8)
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = './work_dirs/ttfnet18_1x'
+work_dir = './work_dirs/ttfnet18_2x_nowhgus_boxnolog'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

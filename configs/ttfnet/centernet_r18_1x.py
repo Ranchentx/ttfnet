@@ -12,7 +12,7 @@ model = dict(
         style='pytorch'),
     neck=None,
     bbox_head=dict(
-        type='TTFHead',
+        type='CenterHead',
         inplanes=(64, 128, 256, 512),
         head_conv=128,
         wh_conv=64,
@@ -21,7 +21,7 @@ model = dict(
         num_classes=81,
         wh_offset_base=16,
         wh_agnostic=True,
-        wh_gaussian=True,
+        wh_gaussian=False,
         shortcut_cfg=(1, 2, 3),
         norm_cfg=dict(type='BN'),
         alpha=0.54,
@@ -106,6 +106,7 @@ log_config = dict(
 total_epochs = 12
 # device_ids = range(8)
 device_ids = range(2)
+# device_ids = 1
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 work_dir = './work_dirs/ttfnet18_1x'
