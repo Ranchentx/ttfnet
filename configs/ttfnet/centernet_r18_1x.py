@@ -21,7 +21,7 @@ model = dict(
         num_classes=81,
         wh_offset_base=16,
         wh_agnostic=True,
-        wh_gaussian=False,
+        wh_gaussian=True,
         shortcut_cfg=(1, 2, 3),
         norm_cfg=dict(type='BN'),
         alpha=0.54,
