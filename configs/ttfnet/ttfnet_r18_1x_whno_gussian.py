@@ -41,7 +41,7 @@ data_root = '/raid/jing/data/dataset/coco2017/'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 data = dict(
-    imgs_per_gpu=2,
+    imgs_per_gpu=16,
     workers_per_gpu=2,
     train=dict(
         type=dataset_type,
@@ -104,8 +104,8 @@ log_config = dict(
 # yapf:enable
 # runtime settings
 total_epochs = 12
-# device_ids = range(8)
-device_ids = range(2)
+device_ids = range(8)
+# device_ids = range(2)
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 work_dir = './work_dirs/ttfnet18_1x_no_gussian'
