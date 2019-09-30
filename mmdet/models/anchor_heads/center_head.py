@@ -29,11 +29,10 @@ class CenterHead(AnchorHead):
                  off_head_conv_num=2,
                  num_classes=81,
                  shortcut_kernel=3,
-                 conv_cfg=None,
                  norm_cfg=dict(type='BN'),
                  shortcut_cfg=(1, 2, 3),
                  wh_offset_base=16.,
-                 wh_area_process=None,
+                 wh_area_process='log',
                  wh_agnostic=True,
                  wh_gaussian=True,
                  alpha=0.54,
@@ -51,7 +50,6 @@ class CenterHead(AnchorHead):
         self.planes = planes
         self.head_conv = head_conv
         self.num_classes = num_classes
-        self.conv_cfg = conv_cfg
         self.wh_offset_base = wh_offset_base
         self.wh_area_process = wh_area_process
         self.wh_agnostic = wh_agnostic
@@ -222,6 +220,9 @@ class CenterHead(AnchorHead):
             scores_per_img = scores_per_img[scores_keep]
             bboxes_per_img = bboxes[idx][scores_keep]
             labels_per_img = clses[idx][scores_keep]
+            img_shape = img_metas[idx]['pad_shape']
+            bboxes_per_img[:, 0::2] = bboxes_per_img[:, 0::2].clamp(min=0, max=img_shape[1] - 1)
+            bboxes_per_img[:, 1::2] = bboxes_per_img[:, 1::2].clamp(min=0, max=img_shape[0] - 1)
 
             if rescale:
                 scale_factor = img_metas[idx]['scale_factor']
@@ -365,15 +366,16 @@ class CenterHead(AnchorHead):
 
         h_radiuses_alpha = (feat_hs / 2. * self.alpha).int()
         w_radiuses_alpha = (feat_ws / 2. * self.alpha).int()
-        if self.alpha != self.beta:
+        if self.wh_gaussian and self.alpha != self.beta:
             h_radiuses_beta = (feat_hs / 2. * self.beta).int()
             w_radiuses_beta = (feat_ws / 2. * self.beta).int()
 
         if not self.wh_gaussian:
             # calculate positive (center) regions
             r1 = (1 - self.beta) / 2
-            ctr_x1s, ctr_y1s, ctr_x2s, ctr_y2s = calc_region(gt_boxes.transpose(0, 1), r1)
-            ctr_x1s, ctr_y1s, ctr_x2s, ctr_y2s = [torch.round(x.float() / self.down_ratio).int()
+            ctr_x1s, ctr_y1s, ctr_x2s, ctr_y2s = calc_region(gt_boxes.transpose(0, 1), r1,
+                                                             use_round=False)
+            ctr_x1s, ctr_y1s, ctr_x2s, ctr_y2s = [torch.round(x / self.down_ratio).int()
                                                   for x in [ctr_x1s, ctr_y1s, ctr_x2s, ctr_y2s]]
             ctr_x1s, ctr_x2s = [torch.clamp(x, max=output_w - 1) for x in [ctr_x1s, ctr_x2s]]
             ctr_y1s, ctr_y2s = [torch.clamp(y, max=output_h - 1) for y in [ctr_y1s, ctr_y2s]]
@@ -391,13 +393,13 @@ class CenterHead(AnchorHead):
             # off_target[k] = off_value[k, :]
             # off_target_mask[k] = 1
             # # ------------------------------
-
-
-            if self.alpha != self.beta:
-                fake_heatmap = fake_heatmap.zero_()
-                self.draw_truncate_gaussian(fake_heatmap, ct_ints[k],
-                                            h_radiuses_beta[k].item(), w_radiuses_beta[k].item())
             if self.wh_gaussian:
+
+                if self.alpha != self.beta:
+                    fake_heatmap = fake_heatmap.zero_()
+                    self.draw_truncate_gaussian(fake_heatmap, ct_ints[k],
+                                                h_radiuses_beta[k].item(), w_radiuses_beta[k].item())
+
                 box_target_inds = fake_heatmap > 0
             else:
                 ctr_x1, ctr_y1, ctr_x2, ctr_y2 = ctr_x1s[k], ctr_y1s[k], ctr_x2s[k], ctr_y2s[k]
@@ -406,16 +408,18 @@ class CenterHead(AnchorHead):
 
             if self.wh_agnostic:
                 box_target[:, box_target_inds] = gt_boxes[k][:, None]
+                cls_id = 0
             else:
                 box_target[(cls_id * 4):((cls_id + 1) * 4), box_target_inds] = gt_boxes[k][:, None]
 
-            local_heatmap = fake_heatmap[box_target_inds]
-            ct_div = local_heatmap.sum()
-            local_heatmap *= boxes_area_topk_log[k]
-
-            if self.wh_agnostic:
-                cls_id = 0
-            reg_weight[cls_id, box_target_inds] = local_heatmap / ct_div
+            if self.wh_gaussian:
+                local_heatmap = fake_heatmap[box_target_inds]
+                ct_div = local_heatmap.sum()
+                local_heatmap *= boxes_area_topk_log[k]
+                reg_weight[cls_id, box_target_inds] = local_heatmap / ct_div
+            else:
+                reg_weight[cls_id, box_target_inds] = \
+                    boxes_area_topk_log[k] / box_target_inds.sum().float()
 
         return heatmap, box_target, reg_weight, off_target_n
 
@@ -474,7 +478,7 @@ class CenterHead(AnchorHead):
         mask = wh_weight.view(-1, H, W)
         avg_factor = mask.sum() + 1e-4
 
-        if self.base_loc is None:
+        if self.base_loc is None or H != self.base_loc.shape[1] or W != self.base_loc.shape[2]:
             base_step = self.down_ratio
             shifts_x = torch.arange(0, (W - 1) * base_step + 1, base_step,
                                     dtype=torch.float32, device=heatmap.device)
