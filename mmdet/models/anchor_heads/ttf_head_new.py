@@ -15,7 +15,7 @@ from ..registry import HEADS
 
 
 @HEADS.register_module
-class TTFHead(AnchorHead):
+class TTFHead_new(AnchorHead):
 
     def __init__(self,
                  inplanes=(64, 128, 256, 512),
@@ -27,7 +27,6 @@ class TTFHead(AnchorHead):
                  wh_head_conv_num=2,
                  num_classes=81,
                  shortcut_kernel=3,
-                 conv_cfg=None,
                  norm_cfg=dict(type='BN'),
                  shortcut_cfg=(1, 2, 3),
                  wh_offset_base=16.,
@@ -38,10 +37,7 @@ class TTFHead(AnchorHead):
                  beta=0.54,
                  hm_weight=1.,
                  wh_weight=5.,
-                 max_objs=128,
-                 upsample_sc=True,
-
-                 ):
+                 max_objs=128):
         super(AnchorHead, self).__init__()
         assert len(planes) in [2, 3, 4]
         shortcut_num = min(len(inplanes) - 1, len(planes))
@@ -51,7 +47,6 @@ class TTFHead(AnchorHead):
         self.planes = planes
         self.head_conv = head_conv
         self.num_classes = num_classes
-        self.conv_cfg = conv_cfg
         self.wh_offset_base = wh_offset_base
         self.wh_area_process = wh_area_process
         self.wh_agnostic = wh_agnostic
@@ -62,7 +57,7 @@ class TTFHead(AnchorHead):
         self.wh_weight = wh_weight
         self.max_objs = max_objs
         self.fp16_enabled = False
-        self.upsample_sc = upsample_sc
+
         self.down_ratio = base_down_ratio // 2 ** len(planes)
         self.num_fg = num_classes - 1
         self.wh_planes = 4 if wh_agnostic else 4 * self.num_fg
@@ -106,7 +101,6 @@ class TTFHead(AnchorHead):
     def build_upsample(self, inplanes, planes, norm_cfg=None):
         mdcn = ModulatedDeformConvPack(inplanes, planes, 3, stride=1,
                                        padding=1, dilation=1, deformable_groups=1)
-
         up = nn.UpsamplingBilinear2d(scale_factor=2)
 
         layers = []
@@ -114,8 +108,7 @@ class TTFHead(AnchorHead):
         if norm_cfg:
             layers.append(build_norm_layer(norm_cfg, planes)[1])
         layers.append(nn.ReLU(inplace=True))
-        if self.upsample_sc:
-            layers.append(up)
+        layers.append(up)
 
         return nn.Sequential(*layers)
 
@@ -219,6 +212,9 @@ class TTFHead(AnchorHead):
             scores_per_img = scores_per_img[scores_keep]
             bboxes_per_img = bboxes[idx][scores_keep]
             labels_per_img = clses[idx][scores_keep]
+            img_shape = img_metas[idx]['pad_shape']
+            bboxes_per_img[:, 0::2] = bboxes_per_img[:, 0::2].clamp(min=0, max=img_shape[1] - 1)
+            bboxes_per_img[:, 1::2] = bboxes_per_img[:, 1::2].clamp(min=0, max=img_shape[0] - 1)
 
             if rescale:
                 scale_factor = img_metas[idx]['scale_factor']
@@ -234,10 +230,6 @@ class TTFHead(AnchorHead):
     def loss(self,
              pred_heatmap,
              pred_wh,
-
-
-
-
              gt_bboxes,
              gt_labels,
              img_metas,
@@ -332,8 +324,10 @@ class TTFHead(AnchorHead):
         gt_labels = gt_labels[boxes_ind]
 
         feat_gt_boxes = gt_boxes / self.down_ratio
-        feat_gt_boxes[:, [0, 2]] = torch.clamp(feat_gt_boxes[:, [0, 2]], min=0, max=output_w - 1)
-        feat_gt_boxes[:, [1, 3]] = torch.clamp(feat_gt_boxes[:, [1, 3]], min=0, max=output_h - 1)
+        feat_gt_boxes[:, [0, 2]] = torch.clamp(feat_gt_boxes[:, [0, 2]], min=0,
+                                               max=output_w - 1)
+        feat_gt_boxes[:, [1, 3]] = torch.clamp(feat_gt_boxes[:, [1, 3]], min=0,
+                                               max=output_h - 1)
         feat_hs, feat_ws = (feat_gt_boxes[:, 3] - feat_gt_boxes[:, 1],
                             feat_gt_boxes[:, 2] - feat_gt_boxes[:, 0])
 
@@ -345,15 +339,16 @@ class TTFHead(AnchorHead):
 
         h_radiuses_alpha = (feat_hs / 2. * self.alpha).int()
         w_radiuses_alpha = (feat_ws / 2. * self.alpha).int()
-        if self.alpha != self.beta:
+        if self.wh_gaussian and self.alpha != self.beta:
             h_radiuses_beta = (feat_hs / 2. * self.beta).int()
             w_radiuses_beta = (feat_ws / 2. * self.beta).int()
 
         if not self.wh_gaussian:
             # calculate positive (center) regions
             r1 = (1 - self.beta) / 2
-            ctr_x1s, ctr_y1s, ctr_x2s, ctr_y2s = calc_region(gt_boxes.transpose(0, 1), r1)
-            ctr_x1s, ctr_y1s, ctr_x2s, ctr_y2s = [torch.round(x.float() / self.down_ratio).int()
+            ctr_x1s, ctr_y1s, ctr_x2s, ctr_y2s = calc_region(gt_boxes.transpose(0, 1), r1,
+                                                             use_round=False)
+            ctr_x1s, ctr_y1s, ctr_x2s, ctr_y2s = [torch.round(x / self.down_ratio).int()
                                                   for x in [ctr_x1s, ctr_y1s, ctr_x2s, ctr_y2s]]
             ctr_x1s, ctr_x2s = [torch.clamp(x, max=output_w - 1) for x in [ctr_x1s, ctr_x2s]]
             ctr_y1s, ctr_y2s = [torch.clamp(y, max=output_h - 1) for y in [ctr_y1s, ctr_y2s]]
@@ -367,11 +362,12 @@ class TTFHead(AnchorHead):
                                         h_radiuses_alpha[k].item(), w_radiuses_alpha[k].item())
             heatmap[cls_id] = torch.max(heatmap[cls_id], fake_heatmap)
 
-            if self.alpha != self.beta:
-                fake_heatmap = fake_heatmap.zero_()
-                self.draw_truncate_gaussian(fake_heatmap, ct_ints[k],
-                                            h_radiuses_beta[k].item(), w_radiuses_beta[k].item())
             if self.wh_gaussian:
+                if self.alpha != self.beta:
+                    fake_heatmap = fake_heatmap.zero_()
+                    self.draw_truncate_gaussian(fake_heatmap, ct_ints[k],
+                                                h_radiuses_beta[k].item(),
+                                                w_radiuses_beta[k].item())
                 box_target_inds = fake_heatmap > 0
             else:
                 ctr_x1, ctr_y1, ctr_x2, ctr_y2 = ctr_x1s[k], ctr_y1s[k], ctr_x2s[k], ctr_y2s[k]
@@ -380,16 +376,18 @@ class TTFHead(AnchorHead):
 
             if self.wh_agnostic:
                 box_target[:, box_target_inds] = gt_boxes[k][:, None]
+                cls_id = 0
             else:
                 box_target[(cls_id * 4):((cls_id + 1) * 4), box_target_inds] = gt_boxes[k][:, None]
 
-            local_heatmap = fake_heatmap[box_target_inds]
-            ct_div = local_heatmap.sum()
-            local_heatmap *= boxes_area_topk_log[k]
-
-            if self.wh_agnostic:
-                cls_id = 0
-            reg_weight[cls_id, box_target_inds] = local_heatmap / ct_div
+            if self.wh_gaussian:
+                local_heatmap = fake_heatmap[box_target_inds]
+                ct_div = local_heatmap.sum()
+                local_heatmap *= boxes_area_topk_log[k]
+                reg_weight[cls_id, box_target_inds] = local_heatmap / ct_div
+            else:
+                reg_weight[cls_id, box_target_inds] = \
+                    boxes_area_topk_log[k] / box_target_inds.sum().float()
 
         return heatmap, box_target, reg_weight
 

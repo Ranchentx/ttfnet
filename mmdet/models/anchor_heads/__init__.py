@@ -7,10 +7,11 @@ from .retina_head import RetinaHead
 from .rpn_head import RPNHead
 from .ssd_head import SSDHead
 from .ttf_head import TTFHead
+from .ttf_head_cas import TTFHead_cas
 from .center_head import CenterHead
 
 __all__ = [
     'AnchorHead', 'GuidedAnchorHead', 'FeatureAdaption', 'RPNHead',
     'GARPNHead', 'RetinaHead', 'GARetinaHead', 'SSDHead', 'FCOSHead',
-    'TTFHead', 'CenterHead'
+    'TTFHead', 'CenterHead','TTFHead_cas'
 ]
