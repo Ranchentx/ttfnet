@@ -230,8 +230,8 @@ class TTFHead_cas(AnchorHead):
                    cfg,
                    rescale=False):
         batch, cat, height, width = pred_heatmap.size()
-        pred_heatmap = pred_heatmap_2.detach().sigmoid_()
-        wh = pred_wh_2.detach()
+        pred_heatmap = pred_heatmap_3.detach().sigmoid_()
+        wh = pred_wh_3.detach()
 
         # perform nms on heatmaps
         heat = simple_nms(pred_heatmap)  # used maxpool to filter the max score
