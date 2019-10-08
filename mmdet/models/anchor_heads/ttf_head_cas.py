@@ -209,12 +209,12 @@ class TTFHead_cas(AnchorHead):
         wh = F.relu(self.wh(x)) * self.wh_offset_base
 
         x_2 =self.cas_conv2(x)
-        hm_2 = self.hm(x_2)
-        wh_2 = F.relu(self.wh(x_2)) * self.wh_offset_base
+        hm_2 = self.hm_2(x_2)
+        wh_2 = F.relu(self.wh_2(x_2)) * self.wh_offset_base
 
-        x_3 = self.cas_conv2(x_2)
-        hm_3 = self.hm(x_3)
-        wh_3 = F.relu(self.wh(x_3)) * self.wh_offset_base
+        x_3 = self.cas_conv3(x_2)
+        hm_3 = self.hm_3(x_3)
+        wh_3 = F.relu(self.wh_3(x_3)) * self.wh_offset_base
 
         return hm, wh, hm_2, wh_2, hm_3, wh_3
 
