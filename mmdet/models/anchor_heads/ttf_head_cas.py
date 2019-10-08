@@ -409,9 +409,10 @@ class TTFHead_cas(AnchorHead):
         w_radiuses_alpha_2 = (feat_ws / 2. * self.alpha_2).int()
         h_radiuses_alpha_3= (feat_hs / 2. * self.alpha_3).int()
         w_radiuses_alpha_3 = (feat_ws / 2. * self.alpha_3).int()
-        if self.alpha != self.beta:
-            h_radiuses_beta = (feat_hs / 2. * self.beta).int()
-            w_radiuses_beta = (feat_ws / 2. * self.beta).int()
+
+        # if self.alpha != self.beta:
+        #     h_radiuses_beta = (feat_hs / 2. * self.beta).int()
+        #     w_radiuses_beta = (feat_ws / 2. * self.beta).int()
 
         if not self.wh_gaussian:
             # calculate positive (center) regions
@@ -441,10 +442,12 @@ class TTFHead_cas(AnchorHead):
                                         h_radiuses_alpha_3[k].item(), w_radiuses_alpha_3[k].item())
             heatmap_3[cls_id] = torch.max(heatmap_3[cls_id], fake_heatmap_3)
 
-            if self.alpha != self.beta:
-                fake_heatmap = fake_heatmap.zero_()
-                self.draw_truncate_gaussian(fake_heatmap, ct_ints[k],
-                                            h_radiuses_beta[k].item(), w_radiuses_beta[k].item())
+            # if self.alpha != self.beta:
+            #     fake_heatmap = fake_heatmap.zero_()
+            #     self.draw_truncate_gaussian(fake_heatmap, ct_ints[k],
+            #                                 h_radiuses_beta[k].item(), w_radiuses_beta[k].item())
+
+
             if self.wh_gaussian:
                 box_target_inds = fake_heatmap > 0
                 box_target_inds_2 = fake_heatmap_2 > 0
