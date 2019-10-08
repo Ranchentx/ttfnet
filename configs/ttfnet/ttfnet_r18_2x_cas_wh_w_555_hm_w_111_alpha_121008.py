@@ -118,7 +118,7 @@ device_ids = range(8)
 # device_ids = range(2)
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = './work_dirs/ttfnet18_2x_cas_wh_w_555_hm_w_111_alpha_121008'
+work_dir = './work_dirs/ttfnet18_2x_cas_wh_w_555_hm_w_111_alpha_121008_dcn'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

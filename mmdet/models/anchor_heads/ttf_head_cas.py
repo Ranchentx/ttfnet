@@ -111,8 +111,12 @@ class TTFHead_cas(AnchorHead):
             inplanes[:-1][::-1][:shortcut_num], planes[:shortcut_num], shortcut_cfg,
             kernel_size=shortcut_kernel, padding=padding)
 
-        self.cas_conv2 = BasicConv(self.planes[-1],self.planes[-1], kernel_size=3, padding=1)
-        self.cas_conv3 = BasicConv(self.planes[-1],self.planes[-1], kernel_size=3, padding=1)
+        # self.cas_conv2 = BasicConv(self.planes[-1],self.planes[-1], kernel_size=3, padding=1)
+        self.cas_conv2 = ModulatedDeformConvPack(self.planes[-1],self.planes[-1], 3, stride=1,
+                                       padding=1, dilation=1, deformable_groups=1)
+        # self.cas_conv3 = BasicConv(self.planes[-1],self.planes[-1], kernel_size=3, padding=1)
+        self.cas_conv3 = ModulatedDeformConvPack(self.planes[-1], self.planes[-1], 3, stride=1,
+                                                 padding=1, dilation=1, deformable_groups=1)
         # heads
         self.wh = self.build_head(self.wh_planes, wh_head_conv_num, wh_conv)
         self.hm = self.build_head(self.num_fg, hm_head_conv_num)
